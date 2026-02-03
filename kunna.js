@@ -13,29 +13,33 @@ const pino = require('pino');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; // Render-ന് 10000 ആണ് നല്ലത്
 const PASTEBIN_API_KEY = 'G7KwwROZTb-HD81Pe7VEq2baVm3EtakR';
 
 app.get('/', (req, res) => {
     res.send(`
         <body style="font-family:sans-serif;text-align:center;padding:50px;background:#f0f2f5;">
-            <div style="background:#fff;padding:30px;border-radius:10px;display:inline-block;box-shadow:0 5px 15px rgba(0,0,0,0.1);">
-                <h2>ZENX-V1 LOGIN</h2>
-                <input type="text" id="num" placeholder="919876543210" style="padding:10px;width:250px;"><br><br>
-                <button onclick="getCode()" style="padding:10px 20px;background:#25D366;color:#fff;border:none;border-radius:5px;cursor:pointer;">GET CODE</button>
-                <h3 id="code" style="color:red;margin-top:20px;letter-spacing:2px;"></h3>
-                <p id="status"></p>
+            <div style="background:#fff;padding:30px;border-radius:15px;display:inline-block;box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+                <h2 style="color:#075E54;">ZENX-V1 PAIRING</h2>
+                <input type="text" id="num" placeholder="919876543210" style="padding:15px;width:280px;border-radius:8px;border:1px solid #ddd;"><br><br>
+                <button onclick="getCode()" id="btn" style="padding:15px 30px;background:#25D366;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">GET CODE</button>
+                <h3 id="code" style="color:#d32f2f;margin-top:20px;letter-spacing:2px;font-size:30px;"></h3>
+                <p id="status" style="color:#666;"></p>
             </div>
             <script>
                 async function getCode() {
-                    const n = document.getElementById('num').value;
-                    document.getElementById('status').innerText = 'Requesting...';
-                    const res = await fetch('/getcode?number=' + n);
-                    const data = await res.json();
-                    if(data.code) {
-                        document.getElementById('code').innerText = data.code;
-                        document.getElementById('status').innerText = 'Now link this code in your WhatsApp';
-                    }
+                    const n = document.getElementById('num').value.trim();
+                    if(!n) return alert('Enter Number!');
+                    const btn = document.getElementById('btn');
+                    btn.disabled = true;
+                    document.getElementById('status').innerText = 'Requesting... Please check WhatsApp';
+                    try {
+                        const res = await fetch('/getcode?number=' + n);
+                        const data = await response.json();
+                        if(data.code) {
+                            document.getElementById('code').innerText = data.code;
+                        }
+                    } catch(e) {}
                 }
             </script>
         </body>
@@ -44,8 +48,6 @@ app.get('/', (req, res) => {
 
 app.get('/getcode', async (req, res) => {
     let num = req.query.number.replace(/[^0-9]/g, '');
-    
-    // പഴയ ഡാറ്റ പൂർണ്ണമായും നീക്കം ചെയ്യുന്നു
     if (fs.existsSync('./auth_info')) { fs.rmSync('./auth_info', { recursive: true }); }
 
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
@@ -60,14 +62,14 @@ app.get('/getcode', async (req, res) => {
         printQRInTerminal: false,
         logger: pino({ level: "silent" }),
         browser: Browsers.ubuntu("Chrome"),
-        syncFullHistory: false // വേഗത്തിൽ ലോഗിൻ ആകാൻ ഇത് സഹായിക്കും
+        syncFullHistory: false
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (s) => {
         if (s.connection === "open") {
-            await delay(5000);
+            await delay(10000);
             const session = JSON.stringify(sock.authState.creds);
             const pRes = await axios.post('https://pastebin.com/api/api_post.php', qs.stringify({
                 api_dev_key: PASTEBIN_API_KEY,
@@ -89,5 +91,5 @@ app.get('/getcode', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log('Server is Live!'));
-              
+app.listen(PORT, () => console.log('Server Ready!'));
+        
