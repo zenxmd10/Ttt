@@ -1,7 +1,7 @@
 {
-  "name": "zenx-session-generator",
+  "name": "knight-session-gen",
   "version": "1.0.0",
-  "description": "WhatsApp Session Generator for ZENX-V1",
+  "description": "WhatsApp Session Generator",
   "main": "kunna.js",
   "scripts": {
     "start": "node kunna.js"
@@ -10,12 +10,7 @@
     "@whiskeysockets/baileys": "^6.6.0",
     "express": "^4.18.2",
     "axios": "^1.6.2",
-    "pino": "^8.16.1",
-    "qrcode": "^1.5.3",
-    "querystring": "^0.2.1",
-    "link-preview-js": "^3.0.4"
-  },
-  "author": "ZENX",
-  "license": "MIT"
+    "pino": "^8.16.2",
+    "querystring": "^0.2.1"
+  }
 }
-
