@@ -3,7 +3,8 @@ const {
     useMultiFileAuthState, 
     delay, 
     makeCacheableSignalKeyStore,
-    fetchLatestBaileysVersion
+    fetchLatestBaileysVersion,
+    Browsers
 } = require("@whiskeysockets/baileys");
 const express = require('express');
 const axios = require('axios');
@@ -17,62 +18,32 @@ const PASTEBIN_API_KEY = 'G7KwwROZTb-HD81Pe7VEq2baVm3EtakR';
 
 app.get('/', (req, res) => {
     res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>ZENX-V1 SESSION GEN</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 40px 20px; background: #0f172a; color: white; margin: 0; }
-                .container { background: #1e293b; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 400px; margin: auto; }
-                h2 { color: #22c55e; margin-bottom: 20px; }
-                input { width: 100%; padding: 15px; margin: 20px 0; border: none; border-radius: 10px; font-size: 16px; outline: none; box-sizing: border-box; }
-                button { width: 100%; padding: 15px; background: #22c55e; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
-                button:disabled { background: #475569; cursor: not-allowed; }
-                #code { font-size: 35px; font-weight: bold; color: #ef4444; margin-top: 25px; letter-spacing: 5px; min-height: 40px; }
-                #status { color: #94a3b8; margin-top: 15px; font-size: 14px; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h2>ZENX-V1</h2>
-                <p>Enter WhatsApp number with country code</p>
-                <input type="text" id="num" placeholder="e.g. 919876543210">
-                <button onclick="getCode()" id="btn">GET PAIRING CODE</button>
-                <div id="code"></div>
-                <p id="status"></p>
+        <body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:white;">
+            <div style="background:#1e293b;padding:30px;border-radius:15px;display:inline-block;box-shadow:0 10px 25px rgba(0,0,0,0.3);">
+                <h2 style="color:#22c55e;">ZENX-V1 ADVANCED</h2>
+                <input type="text" id="num" placeholder="919876543210" style="padding:15px;width:280px;border-radius:8px;border:none;"><br><br>
+                <button onclick="getCode()" id="btn" style="padding:15px 30px;background:#22c55e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">GET PAIRING CODE</button>
+                <h3 id="code" style="color:#ef4444;margin-top:20px;letter-spacing:3px;font-size:32px;"></h3>
+                <p id="st" style="color:#94a3b8;"></p>
             </div>
             <script>
                 async function getCode() {
-                    const number = document.getElementById('num').value.replace(/[^0-9]/g, '');
-                    if(!number || number.length < 10) return alert('Enter a valid WhatsApp number!');
-                    
-                    const btn = document.getElementById('btn');
-                    const status = document.getElementById('status');
-                    const codeDiv = document.getElementById('code');
-                    
-                    btn.disabled = true;
-                    status.innerText = 'Connecting to WhatsApp...';
-                    codeDiv.innerText = '';
-
-                    try {
-                        const response = await fetch('/getcode?number=' + number);
-                        const data = await response.json();
-                        if(data.code) {
-                            codeDiv.innerText = data.code;
-                            status.innerText = 'Check your WhatsApp notifications or go to Linked Devices > Link with Phone Number.';
-                        } else {
-                            status.innerText = 'Error: ' + (data.error || 'Failed to get code');
-                            btn.disabled = false;
-                        }
-                    } catch(e) {
-                        status.innerText = 'Server Error! Try again later.';
-                        btn.disabled = false;
+                    const n = document.getElementById('num').value.trim();
+                    if(!n) return alert('Enter Number!');
+                    document.getElementById('btn').disabled = true;
+                    document.getElementById('st').innerText = 'Requesting...';
+                    const response = await fetch('/getcode?number=' + n);
+                    const data = await response.json();
+                    if(data.code) {
+                        document.getElementById('code').innerText = data.code;
+                        document.getElementById('st').innerText = 'Link this code in your WhatsApp.';
+                    } else {
+                        document.getElementById('st').innerText = 'Error! Try again.';
+                        document.getElementById('btn').disabled = false;
                     }
                 }
             </script>
         </body>
-        </html>
     `);
 });
 
@@ -87,20 +58,22 @@ app.get('/getcode', async (req, res) => {
         version,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        // Request വരാൻ ഏറ്റവും അനുയോജ്യമായ ബ്രൗസർ സെറ്റിംഗ്സ്
         browser: ["Chrome (Linux)", "Chrome", "121.0.6167.160"],
         auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
         },
-        syncFullHistory: false,
+        syncFullHistory: true, // ഹിസ്റ്ററി കിട്ടാൻ ഇത് true ആക്കണം
     });
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', async (s) => {
-        if (s.connection === "open") {
-            await delay(5000);
+    // നിങ്ങൾ തന്ന കണക്ഷൻ ലോജിക്
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, qr } = update;
+        
+        if (connection === "open") {
+            await delay(10000);
             const sessionData = JSON.stringify(sock.authState.creds, null, 2);
             try {
                 const pRes = await axios.post('https://pastebin.com/api/api_post.php', qs.stringify({
@@ -112,14 +85,18 @@ app.get('/getcode', async (req, res) => {
                 }));
                 const id = pRes.data.split('/').pop();
                 await sock.sendMessage(sock.user.id, { text: "ZENX_V1_" + id });
-            } catch (e) {
-                console.error("Pastebin Error");
-            }
-            await delay(3000);
+            } catch (e) {}
             process.exit(0);
         }
     });
 
+    // ഹിസ്റ്ററി ഹാൻഡിൽ ചെയ്യുന്ന ഭാഗം
+    sock.ev.on('messaging-history.set', ({ chats, contacts, messages, syncType }) => {
+        console.log(`Synced: ${chats.length} chats, ${contacts.length} contacts`);
+        // ഇവിടെ നിങ്ങൾക്ക് ഹിസ്റ്ററി സേവ് ചെയ്യണമെങ്കിൽ ചെയ്യാം
+    });
+
+    // പെയറിംഗ് കോഡ് റിക്വസ്റ്റ്
     try {
         if (!sock.authState.creds.registered) {
             await delay(3000);
@@ -127,8 +104,8 @@ app.get('/getcode', async (req, res) => {
             if (!res.headersSent) res.json({ code: code });
         }
     } catch (err) {
-        if (!res.headersSent) res.json({ error: "Request Failed" });
+        if (!res.headersSent) res.json({ error: "Failed" });
     }
 });
 
-app.listen(PORT, () => console.log('Server Live on ' + PORT));
+app.listen(PORT, () => console.log('Server Active!'));
