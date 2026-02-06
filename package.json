@@ -1,5 +1,5 @@
 {
-  "name": "knight-session-gen",
+  "name": "Zenx v1",
   "version": "1.0.0",
   "description": "WhatsApp Session Generator",
   "main": "kunna.js",
@@ -11,6 +11,7 @@
     "express": "^4.18.2",
     "axios": "^1.6.2",
     "pino": "^8.16.2",
-    "querystring": "^0.2.1"
+    "querystring": "^0.2.1",
+    "dotenv": "^16.4.5"
   }
 }
