@@ -1,111 +1,115 @@
-const { 
-    default: makeWASocket, 
-    useMultiFileAuthState, 
-    delay, 
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    delay,
     makeCacheableSignalKeyStore,
-    fetchLatestBaileysVersion,
-    Browsers
+    fetchLatestBaileysVersion
 } = require("@whiskeysockets/baileys");
-const express = require('express');
-const axios = require('axios');
-const qs = require('querystring');
-const pino = require('pino');
-const fs = require('fs');
+
+const express = require("express");
+const axios = require("axios");
+const qs = require("querystring");
+const pino = require("pino");
+const fs = require("fs");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const PASTEBIN_API_KEY = 'G7KwwROZTb-HD81Pe7VEq2baVm3EtakR';
+const PASTEBIN_API_KEY = process.env.PASTEBIN_API_KEY; // optional
 
-app.get('/', (req, res) => {
-    res.send(`
-        <body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:white;">
-            <div style="background:#1e293b;padding:30px;border-radius:15px;display:inline-block;box-shadow:0 10px 25px rgba(0,0,0,0.3);">
-                <h2 style="color:#22c55e;">ZENX-V1 ADVANCED</h2>
-                <input type="text" id="num" placeholder="919876543210" style="padding:15px;width:280px;border-radius:8px;border:none;"><br><br>
-                <button onclick="getCode()" id="btn" style="padding:15px 30px;background:#22c55e;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">GET PAIRING CODE</button>
-                <h3 id="code" style="color:#ef4444;margin-top:20px;letter-spacing:3px;font-size:32px;"></h3>
-                <p id="st" style="color:#94a3b8;"></p>
-            </div>
-            <script>
-                async function getCode() {
-                    const n = document.getElementById('num').value.trim();
-                    if(!n) return alert('Enter Number!');
-                    document.getElementById('btn').disabled = true;
-                    document.getElementById('st').innerText = 'Requesting...';
-                    const response = await fetch('/getcode?number=' + n);
-                    const data = await response.json();
-                    if(data.code) {
-                        document.getElementById('code').innerText = data.code;
-                        document.getElementById('st').innerText = 'Link this code in your WhatsApp.';
-                    } else {
-                        document.getElementById('st').innerText = 'Error! Try again.';
-                        document.getElementById('btn').disabled = false;
-                    }
-                }
-            </script>
-        </body>
-    `);
+/* -------------------- HOME -------------------- */
+app.get("/", (req, res) => {
+    res.send("ZENX-V1 ACTIVE");
 });
 
-app.get('/getcode', async (req, res) => {
-    let num = req.query.number.replace(/[^0-9]/g, '');
-    if (fs.existsSync('./session')) { fs.rmSync('./session', { recursive: true, force: true }); }
-
-    const { state, saveCreds } = await useMultiFileAuthState('./session');
-    const { version } = await fetchLatestBaileysVersion();
-
-    const sock = makeWASocket({
-        version,
-        logger: pino({ level: 'silent' }),
-        printQRInTerminal: false,
-        browser: ["Chrome (Linux)", "Chrome", "121.0.6167.160"],
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" })),
-        },
-        syncFullHistory: true, // ഹിസ്റ്ററി കിട്ടാൻ ഇത് true ആക്കണം
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-
-    // നിങ്ങൾ തന്ന കണക്ഷൻ ലോജിക്
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, qr } = update;
-        
-        if (connection === "open") {
-            await delay(10000);
-            const sessionData = JSON.stringify(sock.authState.creds, null, 2);
-            try {
-                const pRes = await axios.post('https://pastebin.com/api/api_post.php', qs.stringify({
-                    api_dev_key: PASTEBIN_API_KEY,
-                    api_option: 'paste',
-                    api_paste_code: sessionData,
-                    api_paste_private: '1',
-                    api_paste_expire_date: '1M'
-                }));
-                const id = pRes.data.split('/').pop();
-                await sock.sendMessage(sock.user.id, { text: "ZENX_V1_" + id });
-            } catch (e) {}
-            process.exit(0);
-        }
-    });
-
-    // ഹിസ്റ്ററി ഹാൻഡിൽ ചെയ്യുന്ന ഭാഗം
-    sock.ev.on('messaging-history.set', ({ chats, contacts, messages, syncType }) => {
-        console.log(`Synced: ${chats.length} chats, ${contacts.length} contacts`);
-        // ഇവിടെ നിങ്ങൾക്ക് ഹിസ്റ്ററി സേവ് ചെയ്യണമെങ്കിൽ ചെയ്യാം
-    });
-
-    // പെയറിംഗ് കോഡ് റിക്വസ്റ്റ്
+/* -------------------- GET CODE -------------------- */
+app.get("/getcode", async (req, res) => {
     try {
-        if (!sock.authState.creds.registered) {
+        let num = (req.query.number || "").replace(/[^0-9]/g, "");
+
+        if (!num || num.length < 10 || num.length > 15) {
+            return res.json({ error: "Invalid number" });
+        }
+
+        const sessionPath = `./session_${num}`;
+
+        const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+        const { version } = await fetchLatestBaileysVersion();
+
+        let codeSent = false;
+
+        const sock = makeWASocket({
+            version,
+            logger: pino({ level: "silent" }),
+            printQRInTerminal: false,
+            browser: ["Chrome (Linux)", "Chrome", "120.0"],
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(
+                    state.keys,
+                    pino({ level: "fatal" })
+                ),
+            },
+            syncFullHistory: false, // ⚠️ heavy load avoid
+        });
+
+        sock.ev.on("creds.update", saveCreds);
+
+        /* -------- CONNECTION UPDATE -------- */
+        sock.ev.on("connection.update", async (update) => {
+            const { connection } = update;
+
+            if (connection === "open") {
+                await delay(5000);
+
+                // OPTIONAL: Pastebin backup
+                if (PASTEBIN_API_KEY) {
+                    try {
+                        const sessionData = JSON.stringify(
+                            sock.authState.creds,
+                            null,
+                            2
+                        );
+
+                        const pRes = await axios.post(
+                            "https://pastebin.com/api/api_post.php",
+                            qs.stringify({
+                                api_dev_key: PASTEBIN_API_KEY,
+                                api_option: "paste",
+                                api_paste_code: sessionData,
+                                api_paste_private: "1",
+                                api_paste_expire_date: "1M",
+                            })
+                        );
+
+                        const id = pRes.data.split("/").pop();
+                        await sock.sendMessage(sock.user.id, {
+                            text: "ZENX_V1_" + id,
+                        });
+                    } catch (e) {
+                        console.log("Pastebin failed");
+                    }
+                }
+
+                await sock.logout();
+                await sock.end();
+            }
+        });
+
+        /* -------- PAIRING CODE -------- */
+        if (!sock.authState.creds.registered && !codeSent) {
             await delay(3000);
-            let code = await sock.requestPairingCode(num);
-            if (!res.headersSent) res.json({ code: code });
+            codeSent = true;
+            const code = await sock.requestPairingCode(num);
+            return res.json({ code });
         }
     } catch (err) {
+        console.error(err);
         if (!res.headersSent) res.json({ error: "Failed" });
     }
 });
 
-app.listen(PORT, () => console.log('Server Active!'));
+/* -------------------- SERVER -------------------- */
+app.listen(PORT, () => {
+    console.log("✅ ZENX-V1 Server Running on", PORT);
+});
